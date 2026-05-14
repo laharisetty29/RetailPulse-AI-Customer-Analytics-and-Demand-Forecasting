@@ -17,8 +17,7 @@ st.write(
     "EDA, Sales Analysis, Customer Segmentation and Churn Overview"
 )
 
-file_path = r"C:\Users\lahar\Downloads\ZIDIO-GROUP-3-main\ZIDIO-GROUP-3-main\merged_cleaned_retail_data.xlsx"
-
+file_path = "merged_cleaned_retail_data.xlsx"
 st.write("Checking file...")
 
 if not os.path.exists(file_path):
