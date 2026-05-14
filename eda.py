@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("RetailPulse – Week 1 Dashboard")
+st.title("RetailPuls Dashboard")
 
 st.write(
     "EDA, Sales Analysis, Customer Segmentation and Churn Overview"
