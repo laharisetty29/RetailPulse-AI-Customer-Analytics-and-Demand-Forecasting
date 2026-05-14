@@ -1,10 +1,10 @@
 streamlit
 pandas
 numpy
-matplotlib
-seaborn
-scikit-learn
 plotly
-openpyxl
-statsmodels
+seaborn
+matplotlib
+scikit-learn
 scipy
+statsmodels
+openpyxl
