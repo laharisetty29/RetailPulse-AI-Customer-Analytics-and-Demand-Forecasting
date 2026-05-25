@@ -2,753 +2,369 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import seaborn as sns
-import matplotlib.pyplot as plt
-
 from sklearn.preprocessing import StandardScaler
-from scipy.cluster.vq import kmeans2
-from statsmodels.tsa.stattools import adfuller
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.ensemble import RandomForestClassifier
-
-try:
-    from xgboost import XGBClassifier
-    xgb_available = True
-except:
-    xgb_available = False
-
-try:
-    import shap
-    shap_available = True
-except:
-    shap_available = False
-
-try:
-    import optuna
-    optuna_available = True
-except:
-    optuna_available = False
-
-try:
-    from prophet import Prophet
-    prophet_available = True
-except:
-    prophet_available = False
+from sklearn.cluster import KMeans
 
 st.set_page_config(
-    page_title="RetailPulse Dashboard",
+    page_title="RetailPulse Advanced Analytics Dashboard",
     layout="wide"
 )
 
-st.title("RetailPulse Dashboard")
+st.title("RetailPulse Advanced Analytics Dashboard")
 
 st.write(
-    "Advanced Retail Analytics Dashboard"
+    "Interactive Retail Analytics, Churn Insights, Inventory Insights and Customer Segmentation"
 )
 
 file_path = "merged_cleaned_retail_data.xlsx"
 
 if not os.path.exists(file_path):
-    st.error("Dataset file not found")
+
+    st.error(
+        "Dataset file not found. Keep merged_cleaned_retail_data.xlsx in the same folder."
+    )
+
     st.stop()
 
 df = pd.read_excel(
     file_path,
     engine="openpyxl",
-    nrows=5000
+    nrows=15000
 )
 
-st.success("Dataset loaded successfully")
-
-st.subheader("Dataset Preview")
-st.dataframe(df.head())
-
-st.subheader("Dataset Shape")
-st.write(df.shape)
-
-st.subheader("Missing Values")
-
-missing_df = df.isnull().sum().reset_index()
-missing_df.columns = ["Column", "Missing Values"]
-
-st.dataframe(missing_df)
+df["Stock Code"] = df["Stock Code"].astype(str)
 
 df = df.drop_duplicates()
+
 df = df.dropna()
 
-if "Quantity" in df.columns and "Price" in df.columns:
-    df["TotalAmount"] = df["Quantity"] * df["Price"]
-
-if "Invoice Date" in df.columns:
-    df["Invoice Date"] = pd.to_datetime(
-        df["Invoice Date"],
-        errors="coerce"
-    )
-
-st.subheader("Summary Statistics")
-
-st.dataframe(
-    df.describe(include="all")
+df["Invoice Date"] = pd.to_datetime(
+    df["Invoice Date"],
+    errors="coerce"
 )
 
-numeric_cols = df.select_dtypes(
-    include="number"
-).columns
+if "TotalAmount" not in df.columns:
 
-if len(numeric_cols) > 0:
-
-    selected_col = st.selectbox(
-        "Select Numeric Column",
-        numeric_cols
+    df["TotalAmount"] = (
+        df["Quantity"] * df["Price"]
     )
 
-    fig = px.histogram(
-        df,
-        x=selected_col,
-        title=f"{selected_col} Distribution"
+original_df = df.copy()
+
+st.sidebar.header("Dashboard Filters")
+
+filtered_df = original_df.copy()
+
+if "Product_Category" in original_df.columns:
+
+    selected_category = st.sidebar.multiselect(
+        "Select Product Category",
+        sorted(original_df["Product_Category"].unique()),
+        default=sorted(original_df["Product_Category"].unique())
     )
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
+    if selected_category:
 
-    st.subheader("Correlation Heatmap")
-
-    corr = df[numeric_cols].corr()
-
-    fig, ax = plt.subplots(
-        figsize=(10, 8)
-    )
-
-    sns.heatmap(
-        corr,
-        annot=True,
-        cmap="coolwarm",
-        ax=ax
-    )
-
-    st.pyplot(fig)
-
-if "Product_Category" in df.columns:
-
-    st.subheader(
-        "Product Category Distribution"
-    )
-
-    fig = px.histogram(
-        df,
-        x="Product_Category"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-if "Customer_Type" in df.columns:
-
-    st.subheader(
-        "Customer Type Distribution"
-    )
-
-    fig = px.histogram(
-        df,
-        x="Customer_Type"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-if "Churn" in df.columns:
-
-    st.subheader(
-        "Churn Distribution"
-    )
-
-    fig = px.histogram(
-        df,
-        x="Churn"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-if (
-    "Invoice Date" in df.columns
-    and "TotalAmount" in df.columns
-):
-
-    st.subheader(
-        "Time Series Sales Analysis"
-    )
-
-    daily_sales = df.groupby(
-        df["Invoice Date"].dt.date
-    )["TotalAmount"].sum()
-
-    daily_sales.index = pd.to_datetime(
-        daily_sales.index
-    )
-
-    daily_sales_df = daily_sales.reset_index()
-
-    daily_sales_df.columns = [
-        "Date",
-        "Sales"
-    ]
-
-    fig = px.line(
-        daily_sales_df,
-        x="Date",
-        y="Sales",
-        title="Daily Sales Trend"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-    if len(daily_sales_df) > 20:
-
-        result = adfuller(
-            daily_sales_df["Sales"]
-        )
-
-        st.write(
-            "ADF Statistic:",
-            result[0]
-        )
-
-        st.write(
-            "P-value:",
-            result[1]
-        )
-
-if all(
-    col in df.columns
-    for col in [
-        "Customer ID",
-        "Invoice Date",
-        "Invoice",
-        "TotalAmount"
-    ]
-):
-
-    st.subheader(
-        "RFM Customer Segmentation"
-    )
-
-    snapshot_date = df["Invoice Date"].max()
-
-    rfm = df.groupby(
-        "Customer ID"
-    ).agg({
-        "Invoice Date": lambda x: (
-            snapshot_date - x.max()
-        ).days,
-        "Invoice": "nunique",
-        "TotalAmount": "sum"
-    })
-
-    rfm.columns = [
-        "Recency",
-        "Frequency",
-        "Monetary"
-    ]
-
-    scaler = StandardScaler()
-
-    scaled_data = scaler.fit_transform(
-        rfm[
-            [
-                "Recency",
-                "Frequency",
-                "Monetary"
-            ]
+        filtered_df = filtered_df[
+            filtered_df["Product_Category"].isin(
+                selected_category
+            )
         ]
+
+if "Customer_Type" in original_df.columns:
+
+    selected_customer_type = st.sidebar.multiselect(
+        "Select Customer Type",
+        sorted(original_df["Customer_Type"].unique()),
+        default=sorted(original_df["Customer_Type"].unique())
     )
 
-    centroids, labels = kmeans2(
-        scaled_data,
-        4,
-        minit="points"
+    if selected_customer_type:
+
+        filtered_df = filtered_df[
+            filtered_df["Customer_Type"].isin(
+                selected_customer_type
+            )
+        ]
+
+if "Country" in original_df.columns:
+
+    selected_country = st.sidebar.multiselect(
+        "Select Country",
+        sorted(original_df["Country"].unique()),
+        default=sorted(original_df["Country"].unique())
     )
 
-    rfm["Cluster"] = labels
+    if selected_country:
 
-    st.dataframe(rfm.head())
+        filtered_df = filtered_df[
+            filtered_df["Country"].isin(
+                selected_country
+            )
+        ]
 
-    fig = px.scatter(
-        rfm,
-        x="Frequency",
-        y="Monetary",
-        color=rfm["Cluster"].astype(str),
-        title="Customer Segmentation"
+df = filtered_df.copy()
+
+if df.empty:
+
+    st.warning(
+        "No data available for selected filters. Please select different filter values."
     )
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
+    st.stop()
 
-st.header(
-    "Advanced Modeling & Churn Prediction"
+st.subheader("Key Performance Indicators")
+
+col1, col2, col3, col4 = st.columns(4)
+
+col1.metric(
+    "Total Sales",
+    round(df["TotalAmount"].sum(), 2)
 )
 
-if prophet_available:
+if "Profit" in df.columns:
 
-    if (
-        "Invoice Date" in df.columns
-        and "TotalAmount" in df.columns
-    ):
-
-        st.subheader(
-            "Sales Forecasting"
-        )
-
-        prophet_df = df.groupby(
-            df["Invoice Date"].dt.date
-        )["TotalAmount"].sum().reset_index()
-
-        prophet_df.columns = [
-            "ds",
-            "y"
-        ]
-
-        prophet_df["ds"] = pd.to_datetime(
-            prophet_df["ds"]
-        )
-
-        model = Prophet()
-
-        model.fit(prophet_df)
-
-        future = model.make_future_dataframe(
-            periods=30
-        )
-
-        forecast = model.predict(future)
-
-        fig1 = px.line(
-            forecast,
-            x="ds",
-            y="yhat",
-            title="30-Day Sales Forecast"
-        )
-
-        st.plotly_chart(
-            fig1,
-            use_container_width=True
-        )
+    col2.metric(
+        "Total Profit",
+        round(df["Profit"].sum(), 2)
+    )
 
 else:
 
-    st.warning(
-        "Prophet library not installed"
+    col2.metric(
+        "Total Profit",
+        "NA"
     )
 
-if "Churn" in df.columns:
+col3.metric(
+    "Total Customers",
+    df["Customer ID"].nunique()
+)
 
-    st.subheader(
-        "Churn Prediction"
-    )
+col4.metric(
+    "Total Orders",
+    df["Invoice"].nunique()
+)
 
-    model_df = df.copy()
+st.subheader("Dataset Preview")
 
-    if "Invoice Date" in model_df.columns:
+st.dataframe(df.head())
 
-        model_df["Invoice Date"] = pd.to_datetime(
-            model_df["Invoice Date"],
-            errors="coerce"
-        )
+st.subheader("Sales Trend Analysis")
 
-        model_df["Invoice_Year"] = (
-            model_df["Invoice Date"].dt.year
-        )
+daily_sales = df.groupby(
+    df["Invoice Date"].dt.date
+)["TotalAmount"].sum().reset_index()
 
-        model_df["Invoice_Month"] = (
-            model_df["Invoice Date"].dt.month
-        )
+daily_sales.columns = [
+    "Date",
+    "Sales"
+]
 
-        model_df["Invoice_Day"] = (
-            model_df["Invoice Date"].dt.day
-        )
+fig = px.line(
+    daily_sales,
+    x="Date",
+    y="Sales",
+    title="Daily Sales Trend"
+)
 
-        model_df = model_df.drop(
-            "Invoice Date",
-            axis=1
-        )
+st.plotly_chart(
+    fig,
+    width="stretch"
+)
 
-    for col in model_df.columns:
+st.subheader("Product Category Sales")
 
-        if model_df[col].dtype == "object":
+if "Product_Category" in df.columns:
 
-            model_df[col] = (
-                model_df[col]
-                .astype(str)
-                .astype("category")
-                .cat.codes
-            )
-
-    model_df = model_df.fillna(0)
-
-    X = model_df.drop(
-        "Churn",
-        axis=1
-    )
-
-    y = model_df["Churn"]
-
-    X = X.select_dtypes(
-        include=[
-            "int64",
-            "float64",
-            "int32",
-            "float32"
-        ]
-    )
-
-    y = pd.to_numeric(
-        y,
-        errors="coerce"
-    ).fillna(0)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=0.2,
-        random_state=42
-    )
-
-    if xgb_available:
-
-        model = XGBClassifier(
-            eval_metric="logloss"
-        )
-
-        st.success(
-            "Using XGBoost"
-        )
-
-    else:
-
-        model = RandomForestClassifier(
-            n_estimators=100,
-            random_state=42
-        )
-
-        st.warning(
-            "Using RandomForest"
-        )
-
-    try:
-
-        model.fit(
-            X_train,
-            y_train
-        )
-
-        y_pred = model.predict(X_test)
-
-        acc = accuracy_score(
-            y_test,
-            y_pred
-        )
-
-        st.write(
-            "Accuracy:",
-            round(acc * 100, 2),
-            "%"
-        )
-
-        st.text(
-            classification_report(
-                y_test,
-                y_pred
-            )
-        )
-
-        feature_importance = pd.DataFrame({
-            "Feature": X.columns,
-            "Importance": model.feature_importances_
-        })
-
-        feature_importance = feature_importance.sort_values(
-            by="Importance",
-            ascending=False
-        )
-
-        fig2 = px.bar(
-            feature_importance.head(10),
-            x="Importance",
-            y="Feature",
-            orientation="h",
-            title="Feature Importance"
-        )
-
-        st.plotly_chart(
-            fig2,
-            use_container_width=True
-        )
-
-        if shap_available:
-
-            st.subheader(
-                "SHAP Explainability"
-            )
-
-            explainer = shap.Explainer(model)
-
-            shap_values = explainer(X_test)
-
-            shap_df = pd.DataFrame({
-                "Feature": X.columns,
-                "SHAP Importance": abs(
-                    shap_values.values
-                ).mean(axis=0)
-            })
-
-            shap_df = shap_df.sort_values(
-                by="SHAP Importance",
-                ascending=False
-            )
-
-            fig3 = px.bar(
-                shap_df.head(10),
-                x="SHAP Importance",
-                y="Feature",
-                orientation="h",
-                title="SHAP Feature Importance"
-            )
-
-            st.plotly_chart(
-                fig3,
-                use_container_width=True
-            )
-
-    except Exception as e:
-
-        st.error(
-            f"Model Training Error: {e}"
-        )
-
-if (
-    "Product_Category" in df.columns
-    and "Quantity" in df.columns
-):
-
-    st.subheader(
-        "Inventory Optimization"
-    )
-
-    inventory_df = df.groupby(
+    category_sales = df.groupby(
         "Product_Category"
-    )["Quantity"].sum().reset_index()
+    )["TotalAmount"].sum().reset_index()
 
-    inventory_df["Recommended_Stock"] = (
-        inventory_df["Quantity"] * 1.2
-    )
-
-    st.dataframe(
-        inventory_df
-    )
-
-    fig4 = px.bar(
-        inventory_df,
+    fig = px.bar(
+        category_sales,
         x="Product_Category",
-        y="Recommended_Stock",
-        title="Recommended Inventory Stock"
+        y="TotalAmount",
+        title="Sales by Product Category"
     )
 
     st.plotly_chart(
-        fig4,
-        use_container_width=True
+        fig,
+        width="stretch"
     )
 
-if (
-    optuna_available
-    and "Churn" in df.columns
-):
+st.subheader("Customer Type Analysis")
 
-    st.subheader(
-        "Hyperparameter Tuning"
+if "Customer_Type" in df.columns:
+
+    customer_sales = df.groupby(
+        "Customer_Type"
+    )["TotalAmount"].sum().reset_index()
+
+    fig = px.pie(
+        customer_sales,
+        names="Customer_Type",
+        values="TotalAmount",
+        title="Sales Share by Customer Type"
     )
 
-    try:
+    st.plotly_chart(
+        fig,
+        width="stretch"
+    )
 
-        def objective(trial):
+st.subheader("Churn Analysis")
 
-            n_estimators = trial.suggest_int(
-                "n_estimators",
-                50,
-                150
-            )
+if "Churn" in df.columns:
 
-            max_depth = trial.suggest_int(
-                "max_depth",
-                3,
-                10
-            )
+    churn_count = df["Churn"].value_counts().reset_index()
 
-            clf = RandomForestClassifier(
-                n_estimators=n_estimators,
-                max_depth=max_depth,
-                random_state=42
-            )
-
-            clf.fit(
-                X_train,
-                y_train
-            )
-
-            preds = clf.predict(
-                X_test
-            )
-
-            return accuracy_score(
-                y_test,
-                preds
-            )
-
-        study = optuna.create_study(
-            direction="maximize"
-        )
-
-        study.optimize(
-            objective,
-            n_trials=10
-        )
-
-        st.write(
-            "Best Parameters:",
-            study.best_params
-        )
-
-        st.write(
-            "Best Accuracy:",
-            study.best_value
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Optuna Error: {e}"
-        )
-
-st.subheader(
-    "Drift Detection"
-)
-
-drift_df = pd.DataFrame({
-    "Metric": [
-        "Data Drift",
-        "Feature Drift",
-        "Target Drift",
-        "Model Stability"
-    ],
-    "Status": [
-        "No Drift",
-        "Low Drift",
-        "Stable",
-        "Healthy"
+    churn_count.columns = [
+        "Churn",
+        "Count"
     ]
+
+    fig = px.bar(
+        churn_count,
+        x="Churn",
+        y="Count",
+        title="Churn Distribution"
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch"
+    )
+
+st.subheader("Inventory Insights")
+
+if "Current_Stock" in df.columns:
+
+    df["Reorder_Level"] = df["Current_Stock"].apply(
+        lambda x: 100 - x if x < 100 else 0
+    )
+
+    df["Inventory_Status"] = df["Current_Stock"].apply(
+        lambda x:
+            "Reorder Required"
+            if x < 100
+            else "Stock Available"
+    )
+
+    inventory_status = df[
+        "Inventory_Status"
+    ].value_counts().reset_index()
+
+    inventory_status.columns = [
+        "Inventory Status",
+        "Count"
+    ]
+
+    fig = px.bar(
+        inventory_status,
+        x="Inventory Status",
+        y="Count",
+        title="Inventory Status"
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch"
+    )
+
+    show_cols = [
+        "Stock Code",
+        "Description",
+        "Current_Stock",
+        "Reorder_Level",
+        "Inventory_Status"
+    ]
+
+    available_cols = [
+        col for col in show_cols
+        if col in df.columns
+    ]
+
+    st.dataframe(
+        df[available_cols].head(20)
+    )
+
+st.subheader("Customer Segmentation")
+
+snapshot_date = df["Invoice Date"].max()
+
+rfm = df.groupby(
+    "Customer ID"
+).agg({
+
+    "Invoice Date": lambda x:
+        (snapshot_date - x.max()).days,
+
+    "Invoice": "nunique",
+
+    "TotalAmount": "sum"
+
 })
 
-st.dataframe(
-    drift_df,
-    use_container_width=True
+rfm.columns = [
+    "Recency",
+    "Frequency",
+    "Monetary"
+]
+
+rfm = rfm.reset_index()
+
+rfm_numeric = rfm[[
+    "Recency",
+    "Frequency",
+    "Monetary"
+]]
+
+scaler = StandardScaler()
+
+scaled_rfm = scaler.fit_transform(
+    rfm_numeric
 )
 
-fig_drift = px.bar(
-    drift_df,
-    x="Metric",
-    y=[1, 1, 1, 1],
-    color="Status",
-    title="Drift Monitoring Status"
+kmeans = KMeans(
+    n_clusters=4,
+    random_state=42
+)
+
+rfm["Cluster"] = kmeans.fit_predict(
+    scaled_rfm
+)
+
+st.dataframe(
+    rfm.head()
+)
+
+fig = px.scatter(
+    rfm,
+    x="Frequency",
+    y="Monetary",
+    color=rfm["Cluster"].astype(str),
+    title="RFM Customer Segmentation"
 )
 
 st.plotly_chart(
-    fig_drift,
-    use_container_width=True
+    fig,
+    width="stretch"
+)
+
+st.subheader("Download Processed Data")
+
+csv_data = df.to_csv(
+    index=False
+).encode("utf-8")
+
+st.download_button(
+    label="Download Filtered Dataset",
+    data=csv_data,
+    file_name="week3_filtered_retail_data.csv",
+    mime="text/csv"
 )
 
 st.success(
-    "Model monitoring system is operating normally"
-)
-
-st.subheader(
-    "Automated Retraining Pipeline"
-)
-
-pipeline_df = pd.DataFrame({
-    "Stage": [
-        "Data Collection",
-        "Data Validation",
-        "Feature Engineering",
-        "Model Training",
-        "Model Evaluation",
-        "Model Deployment"
-    ],
-    "Status": [
-        "Completed",
-        "Completed",
-        "Completed",
-        "Completed",
-        "Completed",
-        "Active"
-    ]
-})
-
-st.dataframe(
-    pipeline_df,
-    use_container_width=True
-)
-
-fig_pipeline = px.bar(
-    pipeline_df,
-    x="Stage",
-    y=[1, 1, 1, 1, 1, 1],
-    color="Status",
-    title="Pipeline Execution Status"
-)
-
-st.plotly_chart(
-    fig_pipeline,
-    use_container_width=True
-)
-
-st.success(
-    "Automated weekly retraining pipeline is running successfully"
-)
-
-st.subheader(
-    "Week 2 Checkpoint"
-)
-
-st.success(
-    """
-    Forecasting Model Ready
-
-    Churn Prediction Ready
-
-    Inventory Optimization Implemented
-
-    Hyperparameter Tuning Completed
-
-    Drift Detection Added
-
-    Retraining Pipeline Added
-    """
-)
-
-st.success(
-    "RetailPulse Dashboard Executed Successfully"
+    "Week 3 Advanced Dashboard Completed Successfully"
 )
