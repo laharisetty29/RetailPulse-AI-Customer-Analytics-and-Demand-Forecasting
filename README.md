@@ -160,9 +160,8 @@ The project provides:
 ---
 
 ### Author
+
 Gadamsetty Lahari
-GitHub: https://github.com/laharisetty29
-LinkedIn: www.linkedin.com/in/laharigadamsetty
 
 ---
 
