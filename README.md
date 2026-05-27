@@ -115,26 +115,26 @@ RetailPulse/
 ```
 ---
 
-### Installation
-## Clone the repository:
+## Installation
+### Clone the repository:
 ```bash
 git clone https://github.com/laharisetty29/RetailPulse-AI-Customer-Analytics-and-Demand-Forecasting.git
 ```
-## Move into the project folder:
+### Move into the project folder:
 ```bash
 cd RetailPulse-AI-Customer-Analytics-and-Demand-Forecasting
 ```
-## Install dependencies:
+### Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-### Run the Project
-## Execute the Streamlit dashboard:
+## Run the Project
+### Execute the Streamlit dashboard:
 ```bash
 python -m streamlit run streamlit_app.py
 ```
 ---
-### Output
+## Output
 The project provides:
 
 - Interactive business dashboard
@@ -147,7 +147,7 @@ The project provides:
 
 ---
 
-### Future Enhancements
+## Future Enhancements
 
 - Deep Learning models
 - Recommendation system
@@ -159,11 +159,11 @@ The project provides:
 
 ---
 
-### Author
+## Author
 
 Gadamsetty Lahari
 
 ---
 
-### License
+## License
 This project is developed for educational, learning, and portfolio purposes.
