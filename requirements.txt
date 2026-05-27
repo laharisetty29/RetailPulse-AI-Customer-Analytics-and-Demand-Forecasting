@@ -5,11 +5,9 @@ matplotlib
 seaborn
 plotly
 scikit-learn
+openpyxl
 scipy
 statsmodels
-openpyxl
-xgboost
-shap
-optuna
-prophet
 joblib
+prophet
+xgboost
