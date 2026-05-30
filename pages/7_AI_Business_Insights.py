@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.title("AI Business Insights")
+st.title("🤖 AI Business Insights")
 
 df = pd.read_excel(
     "merged_cleaned_retail_data.xlsx",

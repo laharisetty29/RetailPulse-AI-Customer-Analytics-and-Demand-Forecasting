@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.title("Sales Analysis")
+st.title("💰 Sales Analysis")
 
 df = pd.read_excel("merged_cleaned_retail_data.xlsx", engine="openpyxl", nrows=15000)
 

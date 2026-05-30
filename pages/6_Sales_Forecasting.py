@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from prophet import Prophet
 
-st.title("AI Sales Forecasting")
+st.title("📈 AI Sales Forecasting")
 
 df = pd.read_excel(
     "merged_cleaned_retail_data.xlsx",

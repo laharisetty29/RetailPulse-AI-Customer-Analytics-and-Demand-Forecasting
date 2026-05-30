@@ -3,7 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-st.title("EDA – Exploratory Data Analysis")
+st.title("📊 EDA – Exploratory Data Analysis")
 
 df = pd.read_excel("merged_cleaned_retail_data.xlsx", engine="openpyxl", nrows=15000)
 

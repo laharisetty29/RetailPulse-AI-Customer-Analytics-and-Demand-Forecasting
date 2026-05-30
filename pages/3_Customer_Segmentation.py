@@ -4,7 +4,7 @@ import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 
-st.title("Customer Segmentation")
+st.title("👥 Customer Segmentation")
 
 df = pd.read_excel("merged_cleaned_retail_data.xlsx", engine="openpyxl", nrows=15000)
 
